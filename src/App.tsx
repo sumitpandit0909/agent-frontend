@@ -117,10 +117,11 @@ export default function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activePipeline]);
 
-  // Load user sessions when logged in
+  // Load user sessions and tasks when logged in
   useEffect(() => {
     if (isLoggedIn && email) {
       fetchSessions();
+      fetchUserTasks();
     }
   }, [isLoggedIn, email]);
 
@@ -274,6 +275,7 @@ export default function App() {
           if (currentSessionId) {
             fetchHistory(currentSessionId);
           }
+          fetchUserTasks(); // 🟢 Refresh historical tasks dashboard
         }
       } catch (err) {
         console.error('Error polling task status:', err);
@@ -282,6 +284,44 @@ export default function App() {
 
     return () => clearInterval(interval);
   }, [activePipeline, currentSessionId]);
+
+  const fetchUserTasks = async () => {
+    if (!email) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks/all/${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        const tasks = data.map((t: any) => {
+          const status = t.status.toLowerCase();
+          let steps: PipelineStep[] = [
+            { name: 'Research Intelligence', status: status === 'completed' ? 'completed' : 'pending' },
+            { name: 'Document Structuring', status: status === 'completed' ? 'completed' : 'pending' },
+            { name: 'Cloud Upload (R2)', status: status === 'completed' ? 'completed' : 'pending' },
+            { name: 'Email Delivery (Gmail)', status: status === 'completed' ? 'completed' : 'pending' }
+          ];
+
+          return {
+            task_id: t.task_id,
+            status: status,
+            steps: steps,
+            download_link: t.download_link || null,
+            error: status === 'failed' ? t.result : null,
+            timestamp: new Date(t.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+          };
+        });
+
+        setPipelinesList(tasks);
+
+        // Auto-resume active polling if there's any running task
+        const runningTask = tasks.find((t: any) => t.status !== 'completed' && t.status !== 'failed');
+        if (runningTask && (!activePipeline || activePipeline.task_id !== runningTask.task_id)) {
+          setActivePipeline(runningTask);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching user tasks:', err);
+    }
+  };
 
   const extractTaskId = (content: string): string | null => {
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -456,6 +496,7 @@ export default function App() {
         setActivePipeline(newPipeline);
         setPipelinesList(prev => [newPipeline, ...prev]);
         setRightPanelOpen(true); // Automatically expand pipelines drawer
+        fetchUserTasks(); // 🟢 Refresh task list from backend
 
         const tempAssistantMsg: Message = {
           id: (Date.now() + 1).toString(),
@@ -641,55 +682,55 @@ export default function App() {
 
       {/* Tasks & Pipelines Dashboard Modal */}
       {showTaskHubModal && (
-        <div className="modal-overlay">
-          <div className="modal-container glass-panel" style={{ maxWidth: '850px', width: '95%' }}>
-            <div className="modal-header">
-              <FolderLock size={20} color="var(--theme-accent)" />
+        <div className="task-hub-backdrop">
+          <div className="task-hub-content glass-panel">
+            <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div className="modal-logo">
+                <FolderLock size={20} />
+              </div>
               <h2>Tasks & Execution Hub</h2>
+              <p>View the real-time execution status and compiled results for all background Celery tasks triggered in this session.</p>
             </div>
-            
-            <p className="modal-description">
-              View the real-time execution status and compiled results for all background Celery tasks triggered in this session.
-            </p>
 
-            <div className="task-hub-table-wrapper" style={{ maxHeight: '450px', overflowY: 'auto', marginTop: '16px' }}>
+            <div className="task-hub-table-wrapper">
               {pipelinesList.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                   <Globe size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
                   <p>No tasks executed in this session yet.</p>
                 </div>
               ) : (
-                <table className="task-hub-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <table className="task-hub-table">
                   <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: '#94a3b8' }}>
-                      <th style={{ padding: '12px 8px' }}>Task ID</th>
-                      <th style={{ padding: '12px 8px' }}>Status</th>
-                      <th style={{ padding: '12px 8px' }}>Triggered Time</th>
-                      <th style={{ padding: '12px 8px' }}>Result / Action</th>
+                    <tr>
+                      <th>Task ID</th>
+                      <th>Status</th>
+                      <th>Triggered Time</th>
+                      <th>Result / Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pipelinesList.map(pipe => (
-                      <tr key={pipe.task_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <td style={{ padding: '12px 8px', fontFamily: 'monospace', color: 'var(--theme-accent)' }}>
-                          {pipe.task_id}
-                          <button 
-                            className="code-copy-btn" 
-                            style={{ position: 'relative', top: '0', right: '0', marginLeft: '8px', padding: '2px 6px', fontSize: '0.7rem' }}
-                            onClick={() => {
-                              navigator.clipboard.writeText(pipe.task_id);
-                            }}
-                          >
-                            Copy
-                          </button>
+                      <tr key={pipe.task_id}>
+                        <td>
+                          <div className="task-id-cell">
+                            <span>{pipe.task_id.substring(0, 16)}...</span>
+                            <button 
+                              className="task-copy-btn" 
+                              onClick={() => {
+                                navigator.clipboard.writeText(pipe.task_id);
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
                         </td>
-                        <td style={{ padding: '12px 8px' }}>
-                          <span className={`pipeline-badge ${pipe.status}`} style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
+                        <td>
+                          <span className={`pipeline-badge ${pipe.status}`}>
                             {pipe.status.toUpperCase()}
                           </span>
                         </td>
-                        <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{pipe.timestamp}</td>
-                        <td style={{ padding: '12px 8px' }}>
+                        <td>{pipe.timestamp}</td>
+                        <td>
                           {pipe.download_link ? (
                             <a 
                               href={pipe.download_link} 
@@ -715,7 +756,7 @@ export default function App() {
               )}
             </div>
 
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
               <button type="button" className="glass-btn" onClick={() => setShowTaskHubModal(false)}>
                 Close Dashboard
               </button>
