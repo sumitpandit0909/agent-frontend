@@ -93,6 +93,9 @@ export default function App() {
   // Document/Pipeline History drawer (stores all pipelines run in this session)
   const [pipelinesList, setPipelinesList] = useState<PipelineState[]>([]);
 
+  // Task Hub Open
+  const [showTaskHubModal, setShowTaskHubModal] = useState(false);
+
   // Refs for scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -280,6 +283,12 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activePipeline, currentSessionId]);
 
+  const extractTaskId = (content: string): string | null => {
+    const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    const match = content.match(uuidRegex);
+    return match ? match[0] : null;
+  };
+
   const fetchSessions = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/sessions/${encodeURIComponent(email)}`);
@@ -298,6 +307,44 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
+
+        // 🟢 Scan history messages for Celery Task IDs and fetch their status
+        const extractedPipelines: PipelineState[] = [];
+        for (const msg of data) {
+          if (msg.role === 'assistant') {
+            const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+            const match = msg.content.match(uuidRegex);
+            if (match) {
+              const taskId = match[0];
+              try {
+                const taskRes = await fetch(`${API_BASE_URL}/task/${taskId}`);
+                if (taskRes.ok) {
+                  const taskData = await taskRes.json();
+                  const status = taskData.status.toLowerCase();
+                  
+                  let steps: PipelineStep[] = [
+                    { name: 'Research Intelligence', status: status === 'completed' ? 'completed' : 'pending' },
+                    { name: 'Document Structuring', status: status === 'completed' ? 'completed' : 'pending' },
+                    { name: 'Cloud Upload (R2)', status: status === 'completed' ? 'completed' : 'pending' },
+                    { name: 'Email Delivery (Gmail)', status: status === 'completed' ? 'completed' : 'pending' }
+                  ];
+
+                  extractedPipelines.push({
+                    task_id: taskId,
+                    status: status,
+                    steps: steps,
+                    download_link: taskData.download_link || null,
+                    error: status === 'failed' ? taskData.result : null,
+                    timestamp: new Date(taskData.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+                  });
+                }
+              } catch (err) {
+                console.error('Error fetching pipeline for task:', taskId, err);
+              }
+            }
+          }
+        }
+        setPipelinesList(extractedPipelines);
       }
     } catch (err) {
       console.error('Error fetching history:', err);
@@ -391,7 +438,7 @@ export default function App() {
         fetchSessions();
       }
 
-      if (data.execution_mode === 'async_chain' && data.task_id) {
+      if (data.task_id) {
         const newPipeline: PipelineState = {
           task_id: data.task_id,
           status: 'pending',
@@ -592,6 +639,91 @@ export default function App() {
         </div>
       )}
 
+      {/* Tasks & Pipelines Dashboard Modal */}
+      {showTaskHubModal && (
+        <div className="modal-overlay">
+          <div className="modal-container glass-panel" style={{ maxWidth: '850px', width: '95%' }}>
+            <div className="modal-header">
+              <FolderLock size={20} color="var(--theme-accent)" />
+              <h2>Tasks & Execution Hub</h2>
+            </div>
+            
+            <p className="modal-description">
+              View the real-time execution status and compiled results for all background Celery tasks triggered in this session.
+            </p>
+
+            <div className="task-hub-table-wrapper" style={{ maxHeight: '450px', overflowY: 'auto', marginTop: '16px' }}>
+              {pipelinesList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                  <Globe size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                  <p>No tasks executed in this session yet.</p>
+                </div>
+              ) : (
+                <table className="task-hub-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: '#94a3b8' }}>
+                      <th style={{ padding: '12px 8px' }}>Task ID</th>
+                      <th style={{ padding: '12px 8px' }}>Status</th>
+                      <th style={{ padding: '12px 8px' }}>Triggered Time</th>
+                      <th style={{ padding: '12px 8px' }}>Result / Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pipelinesList.map(pipe => (
+                      <tr key={pipe.task_id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                        <td style={{ padding: '12px 8px', fontFamily: 'monospace', color: 'var(--theme-accent)' }}>
+                          {pipe.task_id}
+                          <button 
+                            className="code-copy-btn" 
+                            style={{ position: 'relative', top: '0', right: '0', marginLeft: '8px', padding: '2px 6px', fontSize: '0.7rem' }}
+                            onClick={() => {
+                              navigator.clipboard.writeText(pipe.task_id);
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </td>
+                        <td style={{ padding: '12px 8px' }}>
+                          <span className={`pipeline-badge ${pipe.status}`} style={{ fontSize: '0.75rem', padding: '2px 8px' }}>
+                            {pipe.status.toUpperCase()}
+                          </span>
+                        </td>
+                        <td style={{ padding: '12px 8px', color: '#94a3b8' }}>{pipe.timestamp}</td>
+                        <td style={{ padding: '12px 8px' }}>
+                          {pipe.download_link ? (
+                            <a 
+                              href={pipe.download_link} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="download-btn glass-btn"
+                              style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                            >
+                              <Download size={12} /> Download
+                            </a>
+                          ) : pipe.status === 'failed' ? (
+                            <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>Failed</span>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b' }}>
+                              <Loader2 size={12} className="spin-slow" style={{ animation: 'spin-slow 2s linear infinite' }} /> Running
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className="glass-btn" onClick={() => setShowTaskHubModal(false)}>
+                Close Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Left Sidebar Drawer */}
       <aside id="sidebar" className={`glass-panel ${!sidebarOpen ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
@@ -607,6 +739,10 @@ export default function App() {
         <div className="sidebar-content">
           <button onClick={handleNewChat} className="new-chat-btn glass-btn">
             <Plus size={16} /> New Session
+          </button>
+
+          <button onClick={() => setShowTaskHubModal(true)} className="new-chat-btn glass-btn" style={{ marginTop: '8px', border: '1px solid rgba(139, 92, 246, 0.3)', background: 'rgba(139, 92, 246, 0.05)' }}>
+            <FolderLock size={16} /> Tasks Dashboard
           </button>
 
           {/* Search bar inside sidebar */}
@@ -725,53 +861,61 @@ export default function App() {
                         dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }} 
                       />
                       
-                      {/* Active pipeline stepper tracker (integrated directly into the response block) */}
-                      {msg.role === 'assistant' && activePipeline && index === messages.length - 1 && (
-                        <div className="pipeline-widget">
-                          <div className="pipeline-header">
-                            <h4>
-                              {activePipeline.status === 'completed' ? (
-                                <CheckCircle2 size={14} color="#10b981" />
-                              ) : activePipeline.status === 'failed' ? (
-                                <AlertCircle size={14} color="#ef4444" />
-                              ) : (
-                                <Loader2 size={14} color="var(--theme-accent)" className="spin-slow" style={{ animation: 'spin-slow 2s linear infinite' }} />
-                              )}
-                              Report Generation Pipeline
-                            </h4>
-                            <span className={`pipeline-badge ${activePipeline.status}`}>
-                              {activePipeline.status.toUpperCase()}
-                            </span>
-                          </div>
-
-                          <div className="pipeline-steps">
-                            {activePipeline.steps.map((step, sIdx) => (
-                              <div key={sIdx} className={`step-item ${step.status}`}>
-                                <div className="step-icon-wrapper">
-                                  {step.status === 'completed' ? '✓' : sIdx + 1}
-                                </div>
-                                <div className="step-content">
-                                  <div className="step-label">{step.name}</div>
-                                  {step.details && <div className="step-details">{step.details}</div>}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {activePipeline.download_link && (
-                            <div className="pipeline-result">
-                              <a 
-                                href={activePipeline.download_link} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="download-btn glass-btn"
-                              >
-                                <Download size={14} /> Download Document Artifact
-                              </a>
+                      {/* Dynamic pipeline stepper tracker (persists inline even after completed/reload) */}
+                      {msg.role === 'assistant' && (() => {
+                        const taskId = extractTaskId(msg.content);
+                        if (!taskId) return null;
+                        
+                        const pipe = pipelinesList.find(p => p.task_id === taskId);
+                        if (!pipe) return null;
+                        
+                        return (
+                          <div className="pipeline-widget">
+                            <div className="pipeline-header">
+                              <h4>
+                                {pipe.status === 'completed' ? (
+                                  <CheckCircle2 size={14} color="#10b981" />
+                                ) : pipe.status === 'failed' ? (
+                                  <AlertCircle size={14} color="#ef4444" />
+                                ) : (
+                                  <Loader2 size={14} color="var(--theme-accent)" className="spin-slow" style={{ animation: 'spin-slow 2s linear infinite' }} />
+                                )}
+                                Task ID: {pipe.task_id.substring(0, 8)}...
+                              </h4>
+                              <span className={`pipeline-badge ${pipe.status}`}>
+                                {pipe.status.toUpperCase()}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      )}
+
+                            <div className="pipeline-steps">
+                              {pipe.steps.map((step, sIdx) => (
+                                <div key={sIdx} className={`step-item ${step.status}`}>
+                                  <div className="step-icon-wrapper">
+                                    {step.status === 'completed' ? '✓' : sIdx + 1}
+                                  </div>
+                                  <div className="step-content">
+                                    <div className="step-label">{step.name}</div>
+                                    {step.details && <div className="step-details">{step.details}</div>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {pipe.download_link && (
+                              <div className="pipeline-result">
+                                <a 
+                                  href={pipe.download_link} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="download-btn glass-btn"
+                                >
+                                  <Download size={14} /> Download Document Artifact
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <span className="message-time">{formatDate(msg.created_at)}</span>
                   </div>
