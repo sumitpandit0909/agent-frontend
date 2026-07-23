@@ -98,6 +98,9 @@ export default function App() {
   // Task Hub Open
   const [showTaskHubModal, setShowTaskHubModal] = useState(false);
 
+  // Task Hub Search query
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+
   // Refs for scrolling
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -698,36 +701,54 @@ export default function App() {
       )}
 
       {/* Tasks & Pipelines Dashboard Modal */}
-      {showTaskHubModal && (
-        <div className="task-hub-backdrop">
-          <div className="task-hub-content glass-panel">
-            <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div className="modal-logo">
-                <FolderLock size={20} />
-              </div>
-              <h2>Tasks & Execution Hub</h2>
-              <p>View the real-time execution status and compiled results for all background Celery tasks triggered in this session.</p>
-            </div>
+      {showTaskHubModal && (() => {
+        const filteredTasks = pipelinesList.filter(pipe =>
+          pipe.task_id.toLowerCase().includes(taskSearchQuery.toLowerCase()) ||
+          (pipe.task_name && pipe.task_name.toLowerCase().includes(taskSearchQuery.toLowerCase()))
+        );
 
-            <div className="task-hub-table-wrapper">
-              {pipelinesList.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-                  <Globe size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
-                  <p>No tasks executed in this session yet.</p>
+        return (
+          <div className="task-hub-backdrop">
+            <div className="task-hub-content glass-panel">
+              <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div className="modal-logo">
+                  <FolderLock size={20} />
                 </div>
-              ) : (
-                <table className="task-hub-table">
-                  <thead>
-                    <tr>
-                      <th>Task Type</th>
-                      <th>Task ID</th>
-                      <th>Status</th>
-                      <th>Triggered Time</th>
-                      <th>Result / Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pipelinesList.map(pipe => (
+                <h2>Tasks & Execution Hub</h2>
+                <p>View the real-time execution status and compiled results for all background Celery tasks triggered in this session.</p>
+              </div>
+
+              {/* Task search filter */}
+              <div className="search-container" style={{ margin: '12px auto 8px auto', width: '100%', maxWidth: '400px' }}>
+                <Search size={14} className="search-icon" />
+                <input 
+                  type="text" 
+                  className="sidebar-search-field glass-input"
+                  placeholder="Search by Task ID or Type..." 
+                  value={taskSearchQuery}
+                  onChange={e => setTaskSearchQuery(e.target.value)}
+                />
+              </div>
+
+              <div className="task-hub-table-wrapper">
+                {filteredTasks.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                    <Globe size={32} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                    <p>No matching tasks found.</p>
+                  </div>
+                ) : (
+                  <table className="task-hub-table">
+                    <thead>
+                      <tr>
+                        <th>Task Type</th>
+                        <th>Task ID</th>
+                        <th>Status</th>
+                        <th>Triggered Time</th>
+                        <th>Result / Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredTasks.map(pipe => (
                       <tr key={pipe.task_id}>
                         <td style={{ fontWeight: '500', color: '#fff' }}>
                           {cleanTaskName(pipe.task_name)}
@@ -786,7 +807,8 @@ export default function App() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Left Sidebar Drawer */}
       <aside id="sidebar" className={`glass-panel ${!sidebarOpen ? 'collapsed' : ''}`}>
