@@ -41,9 +41,11 @@ interface PipelineStep {
 
 interface PipelineState {
   task_id: string;
+  task_name?: string;
   status: string;
   steps: PipelineStep[];
   download_link: string | null;
+  result: string | null;
   error: string | null;
   timestamp: string;
 }
@@ -302,9 +304,11 @@ export default function App() {
 
           return {
             task_id: t.task_id,
+            task_name: t.task_name || 'Background Task',
             status: status,
             steps: steps,
             download_link: t.download_link || null,
+            result: t.result || null,
             error: status === 'failed' ? t.result : null,
             timestamp: new Date(t.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
           };
@@ -327,6 +331,17 @@ export default function App() {
     const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
     const match = content.match(uuidRegex);
     return match ? match[0] : null;
+  };
+
+  const cleanTaskName = (name?: string) => {
+    if (!name) return 'Background Task';
+    if (name.includes('create_pdf_task')) return '📄 Generate PDF Document';
+    if (name.includes('create_docx_task')) return '📝 Compile Word Brief';
+    if (name.includes('render_slides_task')) return '📊 Create Presentation';
+    if (name.includes('send_email_task')) return '✉️ Send Gmail Email';
+    if (name.includes('draft_email_task')) return '📨 Draft Gmail Email';
+    if (name.includes('research_task')) return '🔍 Web Research Pipeline';
+    return name;
   };
 
   const fetchSessions = async () => {
@@ -702,6 +717,7 @@ export default function App() {
                 <table className="task-hub-table">
                   <thead>
                     <tr>
+                      <th>Task Type</th>
                       <th>Task ID</th>
                       <th>Status</th>
                       <th>Triggered Time</th>
@@ -711,6 +727,9 @@ export default function App() {
                   <tbody>
                     {pipelinesList.map(pipe => (
                       <tr key={pipe.task_id}>
+                        <td style={{ fontWeight: '500', color: '#fff' }}>
+                          {cleanTaskName(pipe.task_name)}
+                        </td>
                         <td>
                           <div className="task-id-cell">
                             <span>{pipe.task_id.substring(0, 16)}...</span>
@@ -741,6 +760,8 @@ export default function App() {
                             >
                               <Download size={12} /> Download
                             </a>
+                          ) : pipe.status === 'completed' || pipe.status === 'success' ? (
+                            <span style={{ color: '#a7f3d0', fontSize: '0.8rem' }}>{pipe.result || 'Success'}</span>
                           ) : pipe.status === 'failed' ? (
                             <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>Failed</span>
                           ) : (
