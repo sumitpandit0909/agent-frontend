@@ -45,7 +45,7 @@ interface PipelineState {
   status: string;
   steps: PipelineStep[];
   download_link: string | null;
-  result: string | null;
+  result?: string | null;
   error: string | null;
   timestamp: string;
 }
@@ -389,6 +389,7 @@ export default function App() {
                     status: status,
                     steps: steps,
                     download_link: taskData.download_link || null,
+                    result: taskData.result || null,
                     error: status === 'failed' ? taskData.result : null,
                     timestamp: new Date(taskData.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
                   });
@@ -504,6 +505,7 @@ export default function App() {
             { name: 'Email Delivery (Gmail)', status: 'pending' }
           ],
           download_link: null,
+          result: null,
           error: null,
           timestamp: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
         };
