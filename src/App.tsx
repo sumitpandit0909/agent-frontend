@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Send, 
-  Plus, 
-  MessageSquare, 
-  Settings, 
-  CheckCircle2, 
-  Loader2, 
-  AlertCircle, 
-  Download, 
-  User, 
+import {
+  Send,
+  Plus,
+  MessageSquare,
+  Settings,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Download,
+  User,
   Sparkles,
   Search,
   SidebarClose,
   SidebarOpen,
   FolderLock,
   Globe,
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
 import { marked } from 'marked';
 import './App.css';
@@ -65,6 +66,9 @@ export default function App() {
 
   // Settings Panel Open
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Desktop Experience Popup
+  const [showDesktopPopup, setShowDesktopPopup] = useState(true);
 
   // Sidebar search filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,7 +186,7 @@ export default function App() {
       setStatusText('Vanshu is thinking... 🤖');
       return;
     }
-    
+
     const statuses = [
       { time: 0, text: 'Vanshu is thinking... 🤖' },
       { time: 5000, text: 'Vanshu is planning the workflow... 📋' },
@@ -190,13 +194,13 @@ export default function App() {
       { time: 30000, text: 'Vanshu is executing tools... ⚡' },
       { time: 45000, text: 'Vanshu is finalizing task... ✨' }
     ];
-    
+
     const timers = statuses.map(status => {
       return setTimeout(() => {
         setStatusText(status.text);
       }, status.time);
     });
-    
+
     return () => {
       timers.forEach(t => clearTimeout(t));
     };
@@ -213,10 +217,10 @@ export default function App() {
         const res = await fetch(`${API_BASE_URL}/task/${activePipeline.task_id}`);
         if (!res.ok) return;
         const taskData = await res.json();
-        
+
         const status = taskData.status.toLowerCase();
         const resultText = taskData.result || '';
-        
+
         let steps: PipelineStep[] = [
           { name: 'Research Intelligence', status: 'pending' },
           { name: 'Document Structuring', status: 'pending' },
@@ -271,7 +275,7 @@ export default function App() {
 
         // Update both active pipeline & history database
         setActivePipeline(updatedPipeline);
-        setPipelinesList(prev => 
+        setPipelinesList(prev =>
           prev.map(p => p.task_id === activePipeline.task_id ? updatedPipeline : p)
         );
 
@@ -379,7 +383,7 @@ export default function App() {
                 if (taskRes.ok) {
                   const taskData = await taskRes.json();
                   const status = taskData.status.toLowerCase();
-                  
+
                   let steps: PipelineStep[] = [
                     { name: 'Research Intelligence', status: status === 'completed' ? 'completed' : 'pending' },
                     { name: 'Document Structuring', status: status === 'completed' ? 'completed' : 'pending' },
@@ -413,7 +417,7 @@ export default function App() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputEmail.trim()) return;
-    
+
     const userEmail = inputEmail.trim().toLowerCase();
     const userName = inputName.trim() || 'User';
 
@@ -428,7 +432,7 @@ export default function App() {
   const handleUpdateProfile = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
-    
+
     localStorage.setItem('user_email', email.trim().toLowerCase());
     localStorage.setItem('user_name', name.trim());
     setShowSettingsModal(false);
@@ -512,7 +516,7 @@ export default function App() {
           error: null,
           timestamp: new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
         };
-        
+
         setActivePipeline(newPipeline);
         setPipelinesList(prev => [newPipeline, ...prev]);
         setRightPanelOpen(true); // Automatically expand pipelines drawer
@@ -560,7 +564,7 @@ export default function App() {
   };
 
   // Client-side search filtering for historical chats
-  const filteredSessions = sessions.filter(s => 
+  const filteredSessions = sessions.filter(s =>
     s.title?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -585,8 +589,8 @@ export default function App() {
             <form onSubmit={handleLogin} className="modal-form">
               <div className="form-group">
                 <label htmlFor="user-email">Email Address</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   id="user-email"
                   className="modal-input glass-input"
                   placeholder="name@example.com"
@@ -598,8 +602,8 @@ export default function App() {
 
               <div className="form-group">
                 <label htmlFor="user-name">Your Name</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   id="user-name"
                   className="modal-input glass-input"
                   placeholder="Sumit"
@@ -631,23 +635,23 @@ export default function App() {
             <form onSubmit={handleUpdateProfile} className="modal-form">
               <div className="form-group">
                 <label>Profile Name</label>
-                <input 
-                  type="text" 
-                  className="modal-input glass-input" 
-                  value={name} 
-                  onChange={e => setName(e.target.value)} 
-                  required 
+                <input
+                  type="text"
+                  className="modal-input glass-input"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="form-group">
                 <label>Email Address</label>
-                <input 
-                  type="email" 
-                  className="modal-input glass-input" 
-                  value={email} 
-                  onChange={e => setEmail(e.target.value)} 
-                  required 
+                <input
+                  type="email"
+                  className="modal-input glass-input"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
                 />
               </div>
 
@@ -655,22 +659,22 @@ export default function App() {
               <div className="theme-selector-group">
                 <label>Appearance Theme</label>
                 <div className="theme-options">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`theme-option-btn ${selectedTheme === 'purple' ? 'active' : ''}`}
                     onClick={() => setSelectedTheme('purple')}
                   >
                     🪐 Deep Purple
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`theme-option-btn ${selectedTheme === 'green' ? 'active' : ''}`}
                     onClick={() => setSelectedTheme('green')}
                   >
                     🌿 Emerald
                   </button>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className={`theme-option-btn ${selectedTheme === 'amber' ? 'active' : ''}`}
                     onClick={() => setSelectedTheme('amber')}
                   >
@@ -683,10 +687,10 @@ export default function App() {
                 Save & Apply Changes
               </button>
 
-              <button 
-                type="button" 
-                onClick={handleLogout} 
-                className="glass-btn" 
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="glass-btn"
                 style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171' }}
               >
                 <LogOut size={14} /> Log Out / Reset Local Cache
@@ -721,10 +725,10 @@ export default function App() {
               {/* Task search filter */}
               <div className="search-container" style={{ margin: '12px auto 8px auto', width: '100%', maxWidth: '400px' }}>
                 <Search size={14} className="search-icon" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="sidebar-search-field glass-input"
-                  placeholder="Search by Task ID or Type..." 
+                  placeholder="Search by Task ID or Type..."
                   value={taskSearchQuery}
                   onChange={e => setTaskSearchQuery(e.target.value)}
                 />
@@ -749,66 +753,118 @@ export default function App() {
                     </thead>
                     <tbody>
                       {filteredTasks.map(pipe => (
-                      <tr key={pipe.task_id}>
-                        <td style={{ fontWeight: '500', color: '#fff' }}>
-                          {cleanTaskName(pipe.task_name)}
-                        </td>
-                        <td>
-                          <div className="task-id-cell">
-                            <span>{pipe.task_id.substring(0, 16)}...</span>
-                            <button 
-                              className="task-copy-btn" 
-                              onClick={() => {
-                                navigator.clipboard.writeText(pipe.task_id);
-                              }}
-                            >
-                              Copy
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`pipeline-badge ${pipe.status}`}>
-                            {pipe.status.toUpperCase()}
-                          </span>
-                        </td>
-                        <td>{pipe.timestamp}</td>
-                        <td>
-                          {pipe.download_link ? (
-                            <a 
-                              href={pipe.download_link} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="download-btn glass-btn"
-                              style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                            >
-                              <Download size={12} /> Download
-                            </a>
-                          ) : pipe.status === 'completed' || pipe.status === 'success' ? (
-                            <span style={{ color: '#a7f3d0', fontSize: '0.8rem' }}>{pipe.result || 'Success'}</span>
-                          ) : pipe.status === 'failed' ? (
-                            <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>Failed</span>
-                          ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b' }}>
-                              <Loader2 size={12} className="spin-slow" style={{ animation: 'spin-slow 2s linear infinite' }} /> Running
+                        <tr key={pipe.task_id}>
+                          <td style={{ fontWeight: '500', color: '#fff' }}>
+                            {cleanTaskName(pipe.task_name)}
+                          </td>
+                          <td>
+                            <div className="task-id-cell">
+                              <span>{pipe.task_id.substring(0, 16)}...</span>
+                              <button
+                                className="task-copy-btn"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(pipe.task_id);
+                                }}
+                              >
+                                Copy
+                              </button>
                             </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                          </td>
+                          <td>
+                            <span className={`pipeline-badge ${pipe.status}`}>
+                              {pipe.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td>{pipe.timestamp}</td>
+                          <td>
+                            {pipe.download_link ? (
+                              <a
+                                href={pipe.download_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="download-btn glass-btn"
+                                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                              >
+                                <Download size={12} /> Download
+                              </a>
+                            ) : pipe.status === 'completed' || pipe.status === 'success' ? (
+                              <span style={{ color: '#a7f3d0', fontSize: '0.8rem' }}>{pipe.result || 'Success'}</span>
+                            ) : pipe.status === 'failed' ? (
+                              <span style={{ color: '#ef4444', fontSize: '0.75rem' }}>Failed</span>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#64748b' }}>
+                                <Loader2 size={12} className="spin-slow" style={{ animation: 'spin-slow 2s linear infinite' }} /> Running
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
 
-            <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="glass-btn" onClick={() => setShowTaskHubModal(false)}>
-                Close Dashboard
-              </button>
+              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button type="button" className="glass-btn" onClick={() => setShowTaskHubModal(false)}>
+                  Close Dashboard
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
+
+      {/* Desktop Experience Popup */}
+      {showDesktopPopup && (
+        <div className="modal-backdrop desktop-popup-backdrop">
+          <div className="modal-content glass-panel desktop-popup-content">
+            <button
+              className="desktop-popup-close"
+              onClick={() => setShowDesktopPopup(false)}
+              title="Close"
+            >
+              <X size={18} />
+            </button>
+            <div className="modal-header">
+              <div className="modal-logo">
+                <Sparkles size={22} />
+              </div>
+              <h2>💻 Desktop Experience</h2>
+              <p>For the best experience, we recommend using Vanshu AI on a desktop or laptop computer with a larger screen.</p>
+            </div>
+            <div className="desktop-popup-features">
+              <div className="desktop-popup-feature">
+                <span className="desktop-popup-icon">🖥️</span>
+                <span>Full sidebar navigation with session history</span>
+              </div>
+              <div className="desktop-popup-feature">
+                <span className="desktop-popup-icon">📋</span>
+                <span>Pipelines & Files panel for real-time task tracking</span>
+              </div>
+              <div className="desktop-popup-feature">
+                <span className="desktop-popup-icon">🎨</span>
+                <span>Theme customization and settings management</span>
+              </div>
+              <div className="desktop-popup-feature">
+                <span className="desktop-popup-icon">⌨️</span>
+                <span>Keyboard shortcuts and efficient multi-tasking</span>
+              </div>
+            </div>
+            <button
+              className="modal-submit glass-btn"
+              onClick={() => setShowDesktopPopup(false)}
+            >
+              Got it, Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile sidebar backdrop overlay - closes sidebar when tapped */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'visible' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      ></div>
 
       {/* Left Sidebar Drawer */}
       <aside id="sidebar" className={`glass-panel ${!sidebarOpen ? 'collapsed' : ''}`}>
@@ -820,6 +876,10 @@ export default function App() {
             <h1>Vanshu AI</h1>
             <p><span className="status-dot"></span> Orchestration Engine</p>
           </div>
+          {/* Mobile sidebar close button */}
+          <button className="sidebar-mobile-close" onClick={() => setSidebarOpen(false)} title="Close Sidebar">
+            <X size={18} />
+          </button>
         </div>
 
         <div className="sidebar-content">
@@ -834,21 +894,21 @@ export default function App() {
           {/* Search bar inside sidebar */}
           <div className="search-container">
             <Search size={14} className="search-icon" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="sidebar-search-field glass-input"
-              placeholder="Search chat sessions..." 
+              placeholder="Search chat sessions..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
 
           {filteredSessions.length > 0 && <h3 className="session-section-title">Recent Chats</h3>}
-          
+
           <div className="session-list-scroll">
             {filteredSessions.map(sess => (
-              <div 
-                key={sess.id} 
+              <div
+                key={sess.id}
                 className={`session-item ${currentSessionId === sess.id ? 'active' : ''}`}
                 onClick={() => setCurrentSessionId(sess.id)}
               >
@@ -872,7 +932,7 @@ export default function App() {
               <div className="user-email">{email}</div>
             </div>
           </div>
-          
+
           <button onClick={() => setShowSettingsModal(true)} className="settings-trigger" title="Settings">
             <Settings size={18} />
           </button>
@@ -894,8 +954,8 @@ export default function App() {
 
           <div className="chat-header-actions">
             {/* Pipelines toggle button */}
-            <button 
-              onClick={() => setRightPanelOpen(!rightPanelOpen)} 
+            <button
+              onClick={() => setRightPanelOpen(!rightPanelOpen)}
               className={`header-action-btn ${rightPanelOpen ? 'active' : ''}`}
               title="Toggle Pipelines drawer"
             >
@@ -916,15 +976,15 @@ export default function App() {
                 Request custom intelligence gathering. Ask Vanshu to research subjects, compile clean PDFs/Word briefs, sync them to R2, and deliver them to your email address.
               </p>
               <div style={{ marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                <button 
-                  className="glass-btn" 
+                <button
+                  className="glass-btn"
                   style={{ fontSize: '0.8rem', padding: '8px 14px', borderRadius: '20px' }}
                   onClick={() => setPrompt("Create a research report on clean energy and email it to me")}
                 >
                   ⚡ Clean Energy Report
                 </button>
-                <button 
-                  className="glass-btn" 
+                <button
+                  className="glass-btn"
                   style={{ fontSize: '0.8rem', padding: '8px 14px', borderRadius: '20px' }}
                   onClick={() => setPrompt("Draft an email introducing our project to hello@agency.com")}
                 >
@@ -939,22 +999,22 @@ export default function App() {
                   <div className="message-avatar">
                     {msg.role === 'user' ? <User size={14} /> : <Sparkles size={14} />}
                   </div>
-                  
+
                   <div className={`message-container ${msg.role === 'user' ? 'user-msg' : 'assistant-msg'}`}>
                     <div className="message-bubble">
-                      <div 
+                      <div
                         className="markdown-body"
-                        dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }} 
+                        dangerouslySetInnerHTML={{ __html: marked.parse(msg.content) as string }}
                       />
-                      
+
                       {/* Dynamic pipeline stepper tracker (persists inline even after completed/reload) */}
                       {msg.role === 'assistant' && (() => {
                         const taskId = extractTaskId(msg.content);
                         if (!taskId) return null;
-                        
+
                         const pipe = pipelinesList.find(p => p.task_id === taskId);
                         if (!pipe) return null;
-                        
+
                         return (
                           <div className="pipeline-widget">
                             <div className="pipeline-header">
@@ -989,10 +1049,10 @@ export default function App() {
 
                             {pipe.download_link && (
                               <div className="pipeline-result">
-                                <a 
-                                  href={pipe.download_link} 
-                                  target="_blank" 
-                                  rel="noreferrer" 
+                                <a
+                                  href={pipe.download_link}
+                                  target="_blank"
+                                  rel="noreferrer"
                                   className="download-btn glass-btn"
                                 >
                                   <Download size={14} /> Download Document Artifact
@@ -1009,7 +1069,7 @@ export default function App() {
               </div>
             ))
           )}
-          
+
           {/* Dynamic typing and planning status loader */}
           {isLoading && (
             <div className="message-row assistant-row">
@@ -1032,7 +1092,7 @@ export default function App() {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -1083,16 +1143,16 @@ export default function App() {
                   <span className="pipeline-card-id">Task ID: {pipe.task_id.substring(0, 8)}...</span>
                   <span className={`pipeline-card-status ${pipe.status}`}>{pipe.status.toUpperCase()}</span>
                 </div>
-                
+
                 <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
                   Triggered at {pipe.timestamp}
                 </div>
-                
+
                 {pipe.download_link ? (
-                  <a 
-                    href={pipe.download_link} 
-                    target="_blank" 
-                    rel="noreferrer" 
+                  <a
+                    href={pipe.download_link}
+                    target="_blank"
+                    rel="noreferrer"
                     className="pipeline-card-btn glass-btn"
                   >
                     <Download size={12} /> Download Artifact
